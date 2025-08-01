@@ -1,0 +1,53 @@
+/* React Flow ETL Pipeline Editor - Full Code Scaffold (Extended v5) Supports:
+
+Dynamic node config
+
+Add/remove/edit nodes
+
+LocalStorage + Import/Export JSON/YAML
+
+Undo/Redo with useUndo.js
+
+Sync to FastAPI backend
+
+Pipeline metadata config */
+
+
+// File: /src/main.jsx import React from 'react'; import ReactDOM from 'react-dom/client'; import App from './App'; import './index.css';
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+// File: /src/App.jsx import React from 'react'; import FlowEditor from './components/FlowEditor';
+
+export default function App() { return ( <div className="h-screen w-screen"> <FlowEditor /> </div> ); }
+
+// File: /src/hooks/useUndo.js import { useState } from 'react';
+
+export function useUndo(initialState) { const [history, setHistory] = useState([initialState]); const [index, setIndex] = useState(0);
+
+const set = (newState) => { const updated = [...history.slice(0, index + 1), newState]; setHistory(updated); setIndex(updated.length - 1); };
+
+const undo = () => { if (index > 0) setIndex(index - 1); };
+
+const redo = () => { if (index < history.length - 1) setIndex(index + 1); };
+
+return { state: history[index], set, undo, redo, canUndo: index > 0, canRedo: index < history.length - 1 }; }
+
+// File: /src/components/FlowEditor.jsx ... (unchanged core flow editor with imports for useUndo and metadata modal support)
+
+// File: /src/components/MetadataModal.jsx import React, { useState } from 'react';
+
+export default function MetadataModal({ metadata, onSave, onClose }) { const [form, setForm] = useState(metadata);
+
+const update = (e) => { setForm({ ...form, [e.target.name]: e.target.value }); };
+
+return ( <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-10"> <div className="bg-white p-4 rounded w-96 shadow"> <h2 className="text-xl font-semibold mb-4">Pipeline Metadata</h2> {['name', 'version', 'author'].map(field => ( <div className="mb-3" key={field}> <label className="block text-sm font-medium">{field}</label> <input className="w-full px-2 py-1 border rounded" name={field} value={form[field] || ''} onChange={update} /> </div> ))} <div className="flex justify-end gap-2"> <button onClick={onClose} className="px-3 py-1 bg-gray-400 rounded">Cancel</button> <button onClick={() => onSave(form)} className="px-3 py-1 bg-blue-600 text-white rounded">Save</button> </div> </div> </div> ); }
+
+// FastAPI Backend (save_pipeline.py) from fastapi import FastAPI, Request from fastapi.middleware.cors import CORSMiddleware from pydantic import BaseModel import json import os
+
+app = FastAPI() app.add_middleware( CORSMiddleware, allow_origins=[""], allow_credentials=True, allow_methods=[""], allow_headers=["*"], )
+
+class Pipeline(BaseModel): nodes: list edges: list metadata: dict = {}
+
+@app.post("/api/save-pipeline") async def save_pipeline(pipeline: Pipeline): os.makedirs("saved_pipelines", exist_ok=True) file_path = f"saved_pipelines/{pipeline.metadata.get('name', 'untitled')}.json" with open(file_path, "w") as f: json.dump(pipeline.dict(), f, indent=2) return {"message": f"Saved pipeline to {file_path}"}
+
